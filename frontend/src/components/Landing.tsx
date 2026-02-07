@@ -8,7 +8,6 @@ import { Gamepad2, Users, LogIn } from 'lucide-react';
 export const Landing: React.FC = () => {
     const [playerName, setPlayerName] = useState('');
     const [roomCode, setRoomCode] = useState('');
-    const [isCreating, setIsCreating] = useState(false);
     const { error, setError, room } = useGameStore();
     const navigate = useNavigate();
 

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useGameStore } from '../store';
-import { Trophy, RotateCcw, Home } from 'lucide-react';
+import { Trophy, Home } from 'lucide-react';
 
 export const GameOver: React.FC = () => {
     const { room, playerId } = useGameStore();

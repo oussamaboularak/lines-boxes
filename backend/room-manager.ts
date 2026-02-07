@@ -129,8 +129,15 @@ export class RoomManager {
                 p.score = finalScores[p.id] || 0;
             });
 
+            // Debug: Log what we're sending
+            console.log('=== EMITTING ROOM_UPDATED ===');
+            console.log('gameData.currentPlayerIndex:', room.gameData.currentPlayerIndex);
+            console.log('gameData.diceRoll:', room.gameData.diceRoll);
+            console.log('gameData.movesRemaining:', room.gameData.movesRemaining);
+
             if (game.isGameOver()) {
                 room.status = 'ENDED';
+                this.io.to(roomId).emit(SocketEvent.ROOM_UPDATED, room);
                 this.io.to(roomId).emit(SocketEvent.GAME_ENDED, room.gameData);
             } else {
                 this.io.to(roomId).emit(SocketEvent.ROOM_UPDATED, room);

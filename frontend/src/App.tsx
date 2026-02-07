@@ -75,38 +75,40 @@ function RoomPage() {
 }
 
 function App() {
-    const { setRoom, setPlayerId, setError } = useGameStore();
 
     // Set up global socket event listeners that persist across routes
     useEffect(() => {
         socket.connect();
 
         socket.on('connect', () => {
-            setPlayerId(socket.id ?? null);
+            console.log('Socket connected, ID:', socket.id);
+            useGameStore.getState().setPlayerId(socket.id ?? null);
         });
 
         socket.on(SocketEvent.ROOM_UPDATED, (room) => {
             console.log('ROOM_UPDATED received:', room);
-            setRoom(room);
-            setError(null);
+            console.log('Current player index:', room?.gameData?.currentPlayerIndex, 'movesRemaining:', room?.gameData?.movesRemaining, 'diceRoll:', room?.gameData?.diceRoll);
+            useGameStore.getState().setRoom(room);
+            useGameStore.getState().setError(null);
         });
 
         socket.on(SocketEvent.GAME_STARTED, (gameData) => {
-            // Game started event - room will be updated via ROOM_UPDATED
             console.log('Game started:', gameData);
         });
 
         socket.on(SocketEvent.ERROR, (message) => {
-            setError(message);
+            console.log('Socket error:', message);
+            useGameStore.getState().setError(message);
         });
 
+        // Don't remove listeners - they should persist for the app lifetime
         return () => {
             socket.off('connect');
             socket.off(SocketEvent.ROOM_UPDATED);
             socket.off(SocketEvent.GAME_STARTED);
             socket.off(SocketEvent.ERROR);
         };
-    }, [setRoom, setPlayerId, setError]);
+    }, []); // Empty dependency array - only run once
 
     return (
         <Routes>

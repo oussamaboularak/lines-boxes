@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { socket } from '../socket';
 import { useGameStore } from '../store';
 import { SocketEvent, DotsAndBoxesState } from '../../../shared/types';
-import { Dice1, Dice2, Dice3, Dice4, Dice5, Dice6, Trophy, Users } from 'lucide-react';
+import { Dice1, Dice2, Dice3, Dice4, Dice5, Dice6, Trophy } from 'lucide-react';
 
 const DiceIcon = ({ value }: { value: number }) => {
     const icons = [Dice1, Dice2, Dice3, Dice4, Dice5, Dice6];
@@ -19,9 +19,10 @@ export const GameBoard: React.FC = () => {
 
     const gameState = room.gameData as DotsAndBoxesState;
     const gridSize = room.settings.gridSize;
-    const currentPlayer = room.players[gameState.currentPlayerIndex];
-    const isMyTurn = currentPlayer?.id === playerId;
-    const myPlayer = room.players.find(p => p.id === playerId);
+    // Use gameData.playerIds (authoritative game order) - room.players order may differ
+    const currentPlayerId = gameState.playerIds?.[gameState.currentPlayerIndex];
+    const currentPlayer = room.players.find(p => p.id === currentPlayerId);
+    const isMyTurn = currentPlayerId === playerId;
 
     const cellSize = 60;
     const dotRadius = 4;
@@ -31,6 +32,7 @@ export const GameBoard: React.FC = () => {
     const offset = 20;
 
     const handleRollDice = () => {
+        console.log('handleRollDice called. isMyTurn:', isMyTurn, 'diceRoll:', gameState.diceRoll);
         if (!isMyTurn || gameState.diceRoll !== null) return;
         setDiceRolling(true);
         socket.emit(SocketEvent.ROLL_DICE);
@@ -49,15 +51,7 @@ export const GameBoard: React.FC = () => {
         socket.emit(SocketEvent.PLACE_LINE, { lineType, row, col });
     };
 
-    useEffect(() => {
-        socket.on(SocketEvent.ROOM_UPDATED, () => {
-            // Room updated
-        });
 
-        return () => {
-            socket.off(SocketEvent.ROOM_UPDATED);
-        };
-    }, []);
 
     // Get player color
     const getPlayerColor = (playerIndex: number) => {
@@ -72,7 +66,7 @@ export const GameBoard: React.FC = () => {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
                     <h1 style={{ fontSize: '1.75rem', fontWeight: '700' }}>Dots and Boxes</h1>
                     <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                        {room.players.map((player, index) => (
+                        {room.players.map((player) => (
                             <div
                                 key={player.id}
                                 style={{
@@ -251,7 +245,7 @@ export const GameBoard: React.FC = () => {
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                                 {room.players
                                     .sort((a, b) => b.score - a.score)
-                                    .map((player, index) => {
+                                    .map((player) => {
                                         const playerIndex = room.players.findIndex(p => p.id === player.id);
                                         return (
                                             <div

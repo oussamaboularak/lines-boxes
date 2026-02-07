@@ -88,14 +88,6 @@ export class DotsAndBoxesGame {
             console.log('=== BOX CHECK ===');
             console.log('Completed boxes:', completedBoxesCount);
 
-            // Classic Dots and Boxes rule: if you complete a box, you get another move
-            // When a box is completed, add bonus moves
-            if (completedBoxesCount > 0) {
-                this.state.movesRemaining += completedBoxesCount;
-                console.log('=== BONUS MOVES ADDED ===');
-                console.log('After bonus moves, movesRemaining:', this.state.movesRemaining);
-            }
-
             // Only switch turns if no moves remaining AFTER bonus moves
             if (this.state.movesRemaining <= 0) {
                 console.log('=== SWITCHING TURNS ===');
