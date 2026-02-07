@@ -33,6 +33,10 @@ io.on('connection', (socket) => {
         roomManager.updateRoomSettings(socket, data);
     });
 
+    socket.on(SocketEvent.UPDATE_AVATAR, (avatar) => {
+        roomManager.updateAvatar(socket, avatar);
+    });
+
     socket.on(SocketEvent.RESET_TO_LOBBY, () => {
         roomManager.resetToLobby(socket);
     });

@@ -3,6 +3,7 @@ import { socket } from '../socket';
 import { useGameStore } from '../store';
 import { SocketEvent } from '../../../shared/types';
 import { Trophy, RefreshCw } from 'lucide-react';
+import { PlayerAvatar } from './PlayerAvatar';
 
 export const GameOver: React.FC = () => {
     const { room, playerId } = useGameStore();
@@ -60,6 +61,7 @@ export const GameOver: React.FC = () => {
                                     <div style={{ fontSize: '1.5rem', fontWeight: '700', width: '30px' }}>
                                         {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`}
                                     </div>
+                                    <PlayerAvatar avatarId={player.avatar} name={player.name} size={40} />
                                     <div>
                                         <div style={{ fontWeight: '600', fontSize: '1.1rem' }}>
                                             {player.name} {player.id === playerId && '(You)'}

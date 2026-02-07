@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { Routes, Route, useParams, useNavigate } from 'react-router-dom';
-import { useGameStore, getClientId } from './store';
+import { useGameStore, getClientId, getSavedAvatar } from './store';
 import { socket } from './socket';
 import { SocketEvent } from '../../shared/types';
 import { Landing } from './components/Landing';
@@ -21,7 +21,7 @@ function RoomPage() {
             const savedName = localStorage.getItem('playerName');
             if (savedName) {
                 // Socket.io queues emits when disconnected; rejoin will send once connected
-                socket.emit(SocketEvent.JOIN_ROOM, { code: roomCode.toUpperCase(), name: savedName, clientId: getClientId() });
+                socket.emit(SocketEvent.JOIN_ROOM, { code: roomCode.toUpperCase(), name: savedName, clientId: getClientId(), avatar: getSavedAvatar() });
             } else {
                 navigate('/');
             }

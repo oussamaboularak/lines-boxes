@@ -10,13 +10,14 @@ export class RoomManager {
 
     constructor(private io: Server) { }
 
-    createRoom(socket: Socket, data: { settings: RoomSettings; name?: string; clientId?: string }) {
+    createRoom(socket: Socket, data: { settings: RoomSettings; name?: string; clientId?: string; avatar?: string }) {
         const roomId = uuidv4();
         const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
 
         const player: Player = {
             id: socket.id,
             clientId: data.clientId,
+            avatar: data.avatar,
             name: data.name || 'Player 1',
             score: 0,
             isConnected: true,
@@ -42,7 +43,7 @@ export class RoomManager {
         this.io.to(roomId).emit(SocketEvent.ROOM_UPDATED, room);
     }
 
-    joinRoom(socket: Socket, { code, name, clientId }: { code: string; name: string; clientId?: string }) {
+    joinRoom(socket: Socket, { code, name, clientId, avatar }: { code: string; name: string; clientId?: string; avatar?: string }) {
         const room = Array.from(this.rooms.values()).find(r => r.code === code);
 
         if (!room) {
@@ -59,6 +60,7 @@ export class RoomManager {
             const oldSocketId = existingPlayer.id;
             existingPlayer.id = socket.id;
             existingPlayer.isConnected = true;
+            if (avatar) existingPlayer.avatar = avatar;
 
             // Update hostId if host reconnected
             if (room.hostId === oldSocketId) {
@@ -104,6 +106,7 @@ export class RoomManager {
         const newPlayer: Player = {
             id: socket.id,
             clientId,
+            avatar,
             name,
             score: 0,
             isConnected: true,
@@ -137,6 +140,24 @@ export class RoomManager {
         }
 
         this.io.to(roomId).emit(SocketEvent.ROOM_UPDATED, room);
+    }
+
+    private readonly VALID_AVATARS = ['buggs-bunny', 'hellokitty', 'jerry', 'tom'];
+
+    updateAvatar(socket: Socket, avatar: string) {
+        const roomId = this.playerToRoom.get(socket.id);
+        if (!roomId) return;
+
+        const room = this.rooms.get(roomId);
+        if (!room || room.status !== 'LOBBY') return;
+
+        if (!this.VALID_AVATARS.includes(avatar)) return;
+
+        const player = room.players.find(p => p.id === socket.id);
+        if (player) {
+            player.avatar = avatar;
+            this.io.to(roomId).emit(SocketEvent.ROOM_UPDATED, room);
+        }
     }
 
     resetToLobby(socket: Socket) {

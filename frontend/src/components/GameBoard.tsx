@@ -3,6 +3,7 @@ import { socket } from '../socket';
 import { useGameStore } from '../store';
 import { SocketEvent, DotsAndBoxesState } from '../../../shared/types';
 import { Dice1, Dice2, Dice3, Dice4, Dice5, Dice6, Trophy } from 'lucide-react';
+import { PlayerAvatar } from './PlayerAvatar';
 
 const DiceIcon = ({ value }: { value: number }) => {
     const icons = [Dice1, Dice2, Dice3, Dice4, Dice5, Dice6];
@@ -92,14 +93,7 @@ export const GameBoard: React.FC = () => {
                                     transition: 'all 0.3s ease'
                                 }}
                             >
-                                <div
-                                    style={{
-                                        width: '12px',
-                                        height: '12px',
-                                        borderRadius: '50%',
-                                        background: getPlayerColor(player.colorIndex)
-                                    }}
-                                />
+                                <PlayerAvatar avatarId={player.avatar} name={player.name} size={32} />
                                 <span style={{ fontWeight: '600' }}>{player.name}</span>
                                 <span style={{
                                     background: 'rgba(0,0,0,0.3)',
@@ -257,9 +251,7 @@ export const GameBoard: React.FC = () => {
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                                 {room.players
                                     .sort((a, b) => b.score - a.score)
-                                    .map((player) => {
-                                        const playerIndex = room.players.findIndex(p => p.id === player.id);
-                                        return (
+                                    .map((player) => (
                                             <div
                                                 key={player.id}
                                                 style={{
@@ -272,20 +264,12 @@ export const GameBoard: React.FC = () => {
                                                 }}
                                             >
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                                    <div
-                                                        style={{
-                                                            width: '24px',
-                                                            height: '24px',
-                                                            borderRadius: '50%',
-                                                            background: getPlayerColor(playerIndex)
-                                                        }}
-                                                    />
+                                                    <PlayerAvatar avatarId={player.avatar} name={player.name} size={24} />
                                                     <span style={{ fontWeight: '600' }}>{player.name}</span>
                                                 </div>
                                                 <span style={{ fontSize: '1.25rem', fontWeight: '700' }}>{player.score}</span>
                                             </div>
-                                        );
-                                    })}
+                                        ))}
                             </div>
                         </div>
                     </div>

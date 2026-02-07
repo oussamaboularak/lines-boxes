@@ -4,6 +4,7 @@ export type RoomId = string;
 export interface Player {
     id: PlayerId;
     clientId?: string; // Persistent ID from localStorage - survives browser reload
+    avatar?: string; // Character icon id (e.g. 'buggs-bunny', 'jerry', 'tom', 'hellokitty')
     name: string;
     score: number;
     isConnected: boolean;
@@ -63,6 +64,7 @@ export enum SocketEvent {
     CREATE_ROOM = 'CREATE_ROOM',
     JOIN_ROOM = 'JOIN_ROOM',
     UPDATE_ROOM_SETTINGS = 'UPDATE_ROOM_SETTINGS',
+    UPDATE_AVATAR = 'UPDATE_AVATAR',
     RESET_TO_LOBBY = 'RESET_TO_LOBBY',
     START_GAME = 'START_GAME',
     RPS_PICK = 'RPS_PICK',

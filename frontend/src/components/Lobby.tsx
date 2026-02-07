@@ -3,6 +3,8 @@ import { socket } from '../socket';
 import { useGameStore } from '../store';
 import { SocketEvent } from '../../../shared/types';
 import { Play, Copy, Check, Users, Settings } from 'lucide-react';
+import { PlayerAvatar } from './PlayerAvatar';
+import { AVATAR_OPTIONS } from '../constants/avatars';
 
 const GRID_OPTIONS = [5, 6, 8] as const;
 const MAX_PLAYERS_OPTIONS = [2, 3, 4] as const;
@@ -29,6 +31,10 @@ export const Lobby: React.FC = () => {
     const handleSettingsChange = (updates: { gridSize?: number; maxPlayers?: number }) => {
         if (!isHost) return;
         socket.emit(SocketEvent.UPDATE_ROOM_SETTINGS, { settings: updates });
+    };
+
+    const handleAvatarChange = (avatarId: string) => {
+        socket.emit(SocketEvent.UPDATE_AVATAR, avatarId);
     };
 
     return (
@@ -121,6 +127,28 @@ export const Lobby: React.FC = () => {
                         <Users size={24} />
                         Players ({room.players.length}/{room.settings.maxPlayers})
                     </h3>
+                    <div style={{ marginBottom: '1.5rem' }}>
+                        <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Your character</p>
+                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                            {AVATAR_OPTIONS.map((a) => (
+                                <button
+                                    key={a.id}
+                                    type="button"
+                                    onClick={() => handleAvatarChange(a.id)}
+                                    style={{
+                                        padding: '2px',
+                                        borderRadius: '50%',
+                                        border: room.players.find(p => p.id === playerId)?.avatar === a.id ? '3px solid var(--accent-primary)' : '2px solid var(--border-color)',
+                                        background: 'transparent',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s'
+                                    }}
+                                >
+                                    <img src={a.src} alt={a.label} style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }} />
+                                </button>
+                            ))}
+                        </div>
+                    </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                         {room.players.map((player, index) => (
                             <div
@@ -138,21 +166,7 @@ export const Lobby: React.FC = () => {
                                 }}
                             >
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                    <div
-                                        style={{
-                                            width: '40px',
-                                            height: '40px',
-                                            borderRadius: '50%',
-                                            background: 'var(--accent-gradient)',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            fontWeight: '700',
-                                            fontSize: '1.1rem'
-                                        }}
-                                    >
-                                        {player.name.charAt(0).toUpperCase()}
-                                    </div>
+                                    <PlayerAvatar avatarId={player.avatar} name={player.name} size={40} />
                                     <div>
                                         <div style={{ fontWeight: '600' }}>
                                             {player.name} {player.id === playerId && '(You)'}

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { socket } from '../socket';
-import { useGameStore, getClientId } from '../store';
+import { useGameStore, getClientId, getSavedAvatar, saveAvatar } from '../store';
 import { SocketEvent, RoomSettings } from '../../../shared/types';
 import { Gamepad2, Users, LogIn } from 'lucide-react';
+import { AVATAR_OPTIONS } from '../constants/avatars';
 
 const GRID_OPTIONS = [5, 6, 8] as const;
 const MAX_PLAYERS_OPTIONS = [2, 3, 4] as const;
@@ -13,6 +14,7 @@ export const Landing: React.FC = () => {
     const [roomCode, setRoomCode] = useState('');
     const [gridSize, setGridSize] = useState<number>(5);
     const [maxPlayers, setMaxPlayers] = useState<number>(4);
+    const [avatar, setAvatar] = useState<string>(getSavedAvatar() || AVATAR_OPTIONS[0].id);
     const { error, setError, room } = useGameStore();
     const navigate = useNavigate();
 
@@ -29,8 +31,8 @@ export const Landing: React.FC = () => {
             return;
         }
 
-        // Save player name to localStorage for rejoin
         localStorage.setItem('playerName', playerName.trim());
+        saveAvatar(avatar);
 
         const settings: RoomSettings = {
             gridSize,
@@ -38,7 +40,7 @@ export const Landing: React.FC = () => {
             maxPlayers
         };
 
-        socket.emit(SocketEvent.CREATE_ROOM, { settings, name: playerName.trim(), clientId: getClientId() });
+        socket.emit(SocketEvent.CREATE_ROOM, { settings, name: playerName.trim(), clientId: getClientId(), avatar });
     };
 
     const handleJoinRoom = () => {
@@ -52,10 +54,10 @@ export const Landing: React.FC = () => {
             return;
         }
 
-        // Save player name to localStorage for rejoin
         localStorage.setItem('playerName', playerName.trim());
+        saveAvatar(avatar);
 
-        socket.emit(SocketEvent.JOIN_ROOM, { code: roomCode.toUpperCase(), name: playerName, clientId: getClientId() });
+        socket.emit(SocketEvent.JOIN_ROOM, { code: roomCode.toUpperCase(), name: playerName, clientId: getClientId(), avatar });
     };
 
     return (
@@ -81,6 +83,31 @@ export const Landing: React.FC = () => {
                 )}
 
                 <div className="card">
+                    <div style={{ marginBottom: '1.5rem' }}>
+                        <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.9rem', fontWeight: '500' }}>
+                            Choose your character
+                        </label>
+                        <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+                            {AVATAR_OPTIONS.map((a) => (
+                                <button
+                                    key={a.id}
+                                    type="button"
+                                    onClick={() => setAvatar(a.id)}
+                                    style={{
+                                        padding: '0.5rem',
+                                        borderRadius: '0.75rem',
+                                        border: avatar === a.id ? '3px solid var(--accent-primary)' : '2px solid var(--border-color)',
+                                        background: avatar === a.id ? 'rgba(99, 102, 241, 0.2)' : 'var(--bg-tertiary)',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s'
+                                    }}
+                                >
+                                    <img src={a.src} alt={a.label} style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover' }} />
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
                     <div style={{ marginBottom: '1.5rem' }}>
                         <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.9rem', fontWeight: '500' }}>
                             Your Name
