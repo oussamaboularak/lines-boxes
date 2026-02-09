@@ -2,18 +2,22 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { socket } from '../socket';
 import { useGameStore, getClientId, getSavedAvatar, saveAvatar } from '../store';
-import { SocketEvent, RoomSettings } from '../../../shared/types';
+import { SocketEvent, RoomSettings, GameType } from '../../../shared/types';
 import { Gamepad2, Users, LogIn } from 'lucide-react';
 import { AVATAR_OPTIONS } from '../constants/avatars';
+import { GAME_OPTIONS } from '../constants/games';
 
 const GRID_OPTIONS = [5, 6, 8] as const;
 const MAX_PLAYERS_OPTIONS = [2, 3, 4] as const;
+const PAIR_COUNT_OPTIONS = [4, 6, 8, 10] as const;
 
 export const Landing: React.FC = () => {
     const [playerName, setPlayerName] = useState('');
     const [roomCode, setRoomCode] = useState('');
+    const [gameType, setGameType] = useState<GameType>('DOTS_AND_BOXES');
     const [gridSize, setGridSize] = useState<number>(5);
     const [maxPlayers, setMaxPlayers] = useState<number>(4);
+    const [pairCount, setPairCount] = useState<number>(8);
     const [avatar, setAvatar] = useState<string>(getSavedAvatar() || AVATAR_OPTIONS[0].id);
     const { error, setError, room } = useGameStore();
     const navigate = useNavigate();
@@ -35,9 +39,11 @@ export const Landing: React.FC = () => {
         saveAvatar(avatar);
 
         const settings: RoomSettings = {
+            gameType,
             gridSize,
             diceSides: 6,
-            maxPlayers
+            maxPlayers,
+            pairCount: gameType === 'MEMORY' ? pairCount : undefined
         };
 
         socket.emit(SocketEvent.CREATE_ROOM, { settings, name: playerName.trim(), clientId: getClientId(), avatar });
@@ -71,7 +77,7 @@ export const Landing: React.FC = () => {
                         </h1>
                     </div>
                     <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem' }}>
-                        Play Dots and Boxes with friends online
+                        Play games with friends online
                     </p>
                 </div>
 
@@ -110,6 +116,36 @@ export const Landing: React.FC = () => {
 
                     <div style={{ marginBottom: '1.5rem' }}>
                         <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.9rem', fontWeight: '500' }}>
+                            Game
+                        </label>
+                        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                            {GAME_OPTIONS.map((g) => (
+                                <button
+                                    key={g.id}
+                                    type="button"
+                                    onClick={() => setGameType(g.id)}
+                                    style={{
+                                        flex: 1,
+                                        minWidth: '140px',
+                                        padding: '0.75rem 1rem',
+                                        borderRadius: '0.75rem',
+                                        border: gameType === g.id ? '3px solid var(--accent-primary)' : '2px solid var(--border-color)',
+                                        background: gameType === g.id ? 'rgba(99, 102, 241, 0.2)' : 'var(--bg-tertiary)',
+                                        color: 'var(--text-primary)',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s',
+                                        textAlign: 'left'
+                                    }}
+                                >
+                                    <div style={{ fontWeight: '600', fontSize: '1rem' }}>{g.label}</div>
+                                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>{g.description}</div>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div style={{ marginBottom: '1.5rem' }}>
+                        <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.9rem', fontWeight: '500' }}>
                             Your Name
                         </label>
                         <input
@@ -123,36 +159,73 @@ export const Landing: React.FC = () => {
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
-                        <div>
-                            <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.9rem', fontWeight: '500' }}>
-                                Grid Size
-                            </label>
-                            <select
-                                className="input"
-                                value={gridSize}
-                                onChange={(e) => setGridSize(Number(e.target.value))}
-                                style={{ width: '100%', padding: '0.75rem' }}
-                            >
-                                {GRID_OPTIONS.map((size) => (
-                                    <option key={size} value={size}>{size}x{size}</option>
-                                ))}
-                            </select>
-                        </div>
-                        <div>
-                            <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.9rem', fontWeight: '500' }}>
-                                Max Players
-                            </label>
-                            <select
-                                className="input"
-                                value={maxPlayers}
-                                onChange={(e) => setMaxPlayers(Number(e.target.value))}
-                                style={{ width: '100%', padding: '0.75rem' }}
-                            >
-                                {MAX_PLAYERS_OPTIONS.map((n) => (
-                                    <option key={n} value={n}>{n}</option>
-                                ))}
-                            </select>
-                        </div>
+                        {gameType === 'DOTS_AND_BOXES' ? (
+                            <>
+                                <div>
+                                    <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.9rem', fontWeight: '500' }}>
+                                        Grid Size
+                                    </label>
+                                    <select
+                                        className="input"
+                                        value={gridSize}
+                                        onChange={(e) => setGridSize(Number(e.target.value))}
+                                        style={{ width: '100%', padding: '0.75rem' }}
+                                    >
+                                        {GRID_OPTIONS.map((size) => (
+                                            <option key={size} value={size}>{size}x{size}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.9rem', fontWeight: '500' }}>
+                                        Max Players
+                                    </label>
+                                    <select
+                                        className="input"
+                                        value={maxPlayers}
+                                        onChange={(e) => setMaxPlayers(Number(e.target.value))}
+                                        style={{ width: '100%', padding: '0.75rem' }}
+                                    >
+                                        {MAX_PLAYERS_OPTIONS.map((n) => (
+                                            <option key={n} value={n}>{n}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <div>
+                                    <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.9rem', fontWeight: '500' }}>
+                                        Pairs
+                                    </label>
+                                    <select
+                                        className="input"
+                                        value={pairCount}
+                                        onChange={(e) => setPairCount(Number(e.target.value))}
+                                        style={{ width: '100%', padding: '0.75rem' }}
+                                    >
+                                        {PAIR_COUNT_OPTIONS.map((n) => (
+                                            <option key={n} value={n}>{n} pairs</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.9rem', fontWeight: '500' }}>
+                                        Max Players
+                                    </label>
+                                    <select
+                                        className="input"
+                                        value={maxPlayers}
+                                        onChange={(e) => setMaxPlayers(Number(e.target.value))}
+                                        style={{ width: '100%', padding: '0.75rem' }}
+                                    >
+                                        {MAX_PLAYERS_OPTIONS.map((n) => (
+                                            <option key={n} value={n}>{n}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </>
+                        )}
                     </div>
 
                     <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>

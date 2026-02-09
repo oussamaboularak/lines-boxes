@@ -1,19 +1,18 @@
 import React from 'react';
-import { socket } from '../socket';
-import { useGameStore } from '../store';
-import { SocketEvent } from '../../../shared/types';
+import { socket } from '../../socket';
+import { useGameStore } from '../../store';
+import { SocketEvent } from '../../../../shared/types';
 import { Trophy, RefreshCw } from 'lucide-react';
-import { PlayerAvatar } from './PlayerAvatar';
+import { PlayerAvatar } from '../../components/PlayerAvatar';
 
-export const GameOver: React.FC = () => {
+export const MemoryGameOver: React.FC = () => {
     const { room, playerId } = useGameStore();
 
-    if (!room || !room.gameData || room.gameData.status !== 'ENDED') return null;
+    if (!room || !room.gameData || room.gameData.gameType !== 'MEMORY' || room.gameData.status !== 'ENDED') return null;
 
     const winner = room.gameData.winner;
     const isTie = winner === 'TIE';
     const isWinner = winner === playerId;
-
     const sortedPlayers = [...room.players].sort((a, b) => b.score - a.score);
 
     const handleNewGame = () => {
@@ -24,9 +23,7 @@ export const GameOver: React.FC = () => {
         <div className="container" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div className="fade-in" style={{ maxWidth: '600px', width: '100%', textAlign: 'center' }}>
                 <div style={{ marginBottom: '2rem' }}>
-                    <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>
-                        {isTie ? '🤝' : isWinner ? '🎉' : '🎮'}
-                    </div>
+                    <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>{isTie ? '🤝' : isWinner ? '🎉' : '🎮'}</div>
                     <h1 style={{ fontSize: '2.5rem', fontWeight: '700', marginBottom: '0.5rem' }}>
                         {isTie ? "It's a Tie!" : isWinner ? 'You Won!' : 'Game Over'}
                     </h1>
@@ -36,11 +33,9 @@ export const GameOver: React.FC = () => {
                         </p>
                     )}
                 </div>
-
                 <div className="card" style={{ marginBottom: '2rem' }}>
                     <h3 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-                        <Trophy size={24} />
-                        Final Scores
+                        <Trophy size={24} /> Final Scores
                     </h3>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                         {sortedPlayers.map((player, index) => (
@@ -68,18 +63,14 @@ export const GameOver: React.FC = () => {
                                         </div>
                                     </div>
                                 </div>
-                                <div style={{ fontSize: '1.75rem', fontWeight: '700' }}>
-                                    {player.score}
-                                </div>
+                                <div style={{ fontSize: '1.75rem', fontWeight: '700' }}>{player.score}</div>
                             </div>
                         ))}
                     </div>
                 </div>
-
                 <div style={{ display: 'flex', gap: '1rem' }}>
                     <button className="btn btn-primary" onClick={handleNewGame} style={{ flex: 1 }}>
-                        <RefreshCw size={20} />
-                        New Game
+                        <RefreshCw size={20} /> New Game
                     </button>
                 </div>
             </div>

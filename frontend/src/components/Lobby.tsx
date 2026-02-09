@@ -2,12 +2,14 @@ import React from 'react';
 import { socket } from '../socket';
 import { useGameStore } from '../store';
 import { SocketEvent } from '../../../shared/types';
-import { Play, Copy, Check, Users, Settings } from 'lucide-react';
+import { Play, Copy, Check, Users, Settings, Gamepad2 } from 'lucide-react';
 import { PlayerAvatar } from './PlayerAvatar';
 import { AVATAR_OPTIONS } from '../constants/avatars';
+import { GAME_OPTIONS } from '../constants/games';
 
 const GRID_OPTIONS = [5, 6, 8] as const;
 const MAX_PLAYERS_OPTIONS = [2, 3, 4] as const;
+const PAIR_COUNT_OPTIONS = [4, 6, 8, 10] as const;
 
 export const Lobby: React.FC = () => {
     const { room, playerId } = useGameStore();
@@ -28,7 +30,7 @@ export const Lobby: React.FC = () => {
         setTimeout(() => setCopied(false), 2000);
     };
 
-    const handleSettingsChange = (updates: { gridSize?: number; maxPlayers?: number }) => {
+    const handleSettingsChange = (updates: { gridSize?: number; maxPlayers?: number; gameType?: string; pairCount?: number }) => {
         if (!isHost) return;
         socket.emit(SocketEvent.UPDATE_ROOM_SETTINGS, { settings: updates });
     };
@@ -65,12 +67,73 @@ export const Lobby: React.FC = () => {
                         </button>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
-                        <div style={{ background: 'var(--bg-tertiary)', padding: '1rem', borderRadius: '0.75rem' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
-                                <Settings size={16} />
-                                Grid Size
+                    <div style={{ marginBottom: '1.5rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
+                            <Gamepad2 size={16} />
+                            Game
+                        </div>
+                        {isHost ? (
+                            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                                {GAME_OPTIONS.map((g) => (
+                                    <button
+                                        key={g.id}
+                                        type="button"
+                                        onClick={() => handleSettingsChange({ gameType: g.id })}
+                                        style={{
+                                            flex: 1,
+                                            minWidth: '140px',
+                                            padding: '0.75rem 1rem',
+                                            borderRadius: '0.75rem',
+                                            border: (room.settings.gameType ?? 'DOTS_AND_BOXES') === g.id ? '3px solid var(--accent-primary)' : '2px solid var(--border-color)',
+                                            background: (room.settings.gameType ?? 'DOTS_AND_BOXES') === g.id ? 'rgba(99, 102, 241, 0.2)' : 'var(--bg-tertiary)',
+                                            color: 'var(--text-primary)',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s',
+                                            textAlign: 'left'
+                                        }}
+                                    >
+                                        <div style={{ fontWeight: '600', fontSize: '1rem' }}>{g.label}</div>
+                                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>{g.description}</div>
+                                    </button>
+                                ))}
                             </div>
+                        ) : (
+                            <div style={{ fontSize: '1.25rem', fontWeight: '600' }}>
+                                {GAME_OPTIONS.find(g => g.id === (room.settings.gameType ?? 'DOTS_AND_BOXES'))?.label ?? 'Dots and Boxes'}
+                            </div>
+                        )}
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+                        {(room.settings.gameType ?? 'DOTS_AND_BOXES') === 'MEMORY' ? (
+                            <div style={{ background: 'var(--bg-tertiary)', padding: '1rem', borderRadius: '0.75rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
+                                    <Settings size={16} />
+                                    Pairs
+                                </div>
+                                {isHost ? (
+                                    <select
+                                        className="input"
+                                        value={room.settings.pairCount ?? 8}
+                                        onChange={(e) => handleSettingsChange({ pairCount: Number(e.target.value) })}
+                                        style={{ width: '100%', padding: '0.5rem', fontSize: '1rem', fontWeight: '600' }}
+                                    >
+                                        {PAIR_COUNT_OPTIONS.map((n) => (
+                                            <option key={n} value={n}>{n} pairs</option>
+                                        ))}
+                                    </select>
+                                ) : (
+                                    <div style={{ fontSize: '1.5rem', fontWeight: '600' }}>
+                                        {room.settings.pairCount ?? 8} pairs
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <div style={{ background: 'var(--bg-tertiary)', padding: '1rem', borderRadius: '0.75rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
+                                    <Settings size={16} />
+                                    Grid Size
+                                </div>
                             {isHost ? (
                                 <select
                                     className="input"
@@ -81,22 +144,25 @@ export const Lobby: React.FC = () => {
                                     {GRID_OPTIONS.map((size) => (
                                         <option key={size} value={size}>{size}x{size}</option>
                                     ))}
-                                </select>
-                            ) : (
-                                <div style={{ fontSize: '1.5rem', fontWeight: '600' }}>
-                                    {room.settings.gridSize}x{room.settings.gridSize}
+                                    </select>
+                                ) : (
+                                    <div style={{ fontSize: '1.5rem', fontWeight: '600' }}>
+                                        {room.settings.gridSize}x{room.settings.gridSize}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                        {(room.settings.gameType ?? 'DOTS_AND_BOXES') === 'DOTS_AND_BOXES' && (
+                            <div style={{ background: 'var(--bg-tertiary)', padding: '1rem', borderRadius: '0.75rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '0.25rem' }}>
+                                    <Settings size={16} />
+                                    Dice Sides
                                 </div>
-                            )}
-                        </div>
-                        <div style={{ background: 'var(--bg-tertiary)', padding: '1rem', borderRadius: '0.75rem' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '0.25rem' }}>
-                                <Settings size={16} />
-                                Dice Sides
+                                <div style={{ fontSize: '1.5rem', fontWeight: '600' }}>
+                                    {room.settings.diceSides}
+                                </div>
                             </div>
-                            <div style={{ fontSize: '1.5rem', fontWeight: '600' }}>
-                                {room.settings.diceSides}
-                            </div>
-                        </div>
+                        )}
                         <div style={{ background: 'var(--bg-tertiary)', padding: '1rem', borderRadius: '0.75rem' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
                                 <Users size={16} />

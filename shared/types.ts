@@ -12,10 +12,14 @@ export interface Player {
     colorIndex: number; // Stable color assignment (0-3)
 }
 
+export type GameType = 'DOTS_AND_BOXES' | 'MEMORY';
+
 export interface RoomSettings {
-    gridSize: number; // e.g., 5 for 5x5 dots
+    gameType: GameType;
+    gridSize: number; // e.g., 5 for 5x5 dots (DOTS_AND_BOXES)
     diceSides: number;
     maxPlayers: number;
+    pairCount?: number; // 4-10 pairs for MEMORY game
 }
 
 export type GameStatus = 'LOBBY' | 'CHOOSING_FIRST' | 'PLAYING' | 'ENDED';
@@ -45,7 +49,18 @@ export interface DotsAndBoxesState extends BaseGameState {
     } | null;
 }
 
-export type GameState = DotsAndBoxesState; // Expand as more games are added
+/** Card index in shuffled deck. cards[i] is the image id (1-20). Face-up cards are in revealed. */
+export interface MemoryGameState extends BaseGameState {
+    gameType: 'MEMORY';
+    playerIds: PlayerId[];
+    cards: number[]; // shuffled card ids (each id appears twice for pairs)
+    revealed: number[]; // indices of currently face-up cards (0 or 2)
+    matched: number[]; // indices of matched pairs
+    currentPlayerIndex: number;
+    scores: Record<PlayerId, number>;
+}
+
+export type GameState = DotsAndBoxesState | MemoryGameState;
 
 export interface Room {
     id: RoomId;
@@ -70,6 +85,8 @@ export enum SocketEvent {
     RPS_PICK = 'RPS_PICK',
     ROLL_DICE = 'ROLL_DICE',
     PLACE_LINE = 'PLACE_LINE',
+    SELECT_GAME = 'SELECT_GAME',
+    FLIP_CARD = 'FLIP_CARD',
     LEAVE_ROOM = 'LEAVE_ROOM',
 
     // Server -> Client

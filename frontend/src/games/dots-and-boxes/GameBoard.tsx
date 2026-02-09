@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { socket } from '../socket';
-import { useGameStore } from '../store';
-import { SocketEvent, DotsAndBoxesState } from '../../../shared/types';
+import { socket } from '../../socket';
+import { useGameStore } from '../../store';
+import { SocketEvent, DotsAndBoxesState } from '../../../../shared/types';
 import { Dice1, Dice2, Dice3, Dice4, Dice5, Dice6, Trophy, Check, X } from 'lucide-react';
-import { PlayerAvatar } from './PlayerAvatar';
+import { PlayerAvatar } from '../../components/PlayerAvatar';
 
 const DiceIcon = ({ value }: { value: number }) => {
     const icons = [Dice1, Dice2, Dice3, Dice4, Dice5, Dice6];
@@ -11,14 +11,13 @@ const DiceIcon = ({ value }: { value: number }) => {
     return <Icon size={32} />;
 };
 
-export const GameBoard: React.FC = () => {
+export const DotsAndBoxesGameBoard: React.FC = () => {
     const { room, playerId } = useGameStore();
     const [hoveredLine, setHoveredLine] = useState<{ type: string; row: number; col: number } | null>(null);
     const [pendingMove, setPendingMove] = useState<{ type: string; row: number; col: number } | null>(null);
     const [diceRolling, setDiceRolling] = useState(false);
     const [cellSize, setCellSize] = useState(60);
 
-    // Responsive cell size for mobile
     useEffect(() => {
         const updateCellSize = () => {
             const width = window.innerWidth;
@@ -35,17 +34,16 @@ export const GameBoard: React.FC = () => {
 
     const gameState = room.gameData as DotsAndBoxesState;
     const gridSize = room.settings.gridSize;
-    // Use gameData.playerIds (authoritative game order) - room.players order may differ
     const currentPlayerId = gameState.playerIds?.[gameState.currentPlayerIndex];
     const currentPlayer = room.players.find(p => p.id === currentPlayerId);
     const isMyTurn = currentPlayerId === playerId;
 
-    // Clear pending move when turn changes or move is no longer valid
     useEffect(() => {
         if (!isMyTurn || gameState.movesRemaining <= 0) {
             setPendingMove(null);
         }
     }, [isMyTurn, gameState.movesRemaining]);
+
     const dotRadius = 4;
     const lineThickness = 4;
     const svgWidth = gridSize * cellSize + 40;
@@ -53,7 +51,6 @@ export const GameBoard: React.FC = () => {
     const offset = 20;
 
     const handleRollDice = () => {
-        console.log('handleRollDice called. isMyTurn:', isMyTurn, 'diceRoll:', gameState.diceRoll);
         if (!isMyTurn || gameState.diceRoll !== null) return;
         setDiceRolling(true);
         socket.emit(SocketEvent.ROLL_DICE);
@@ -62,14 +59,10 @@ export const GameBoard: React.FC = () => {
 
     const handleLineClick = (lineType: string, row: number, col: number) => {
         if (!isMyTurn || gameState.movesRemaining <= 0) return;
-
         const isPlaced = lineType === 'horizontal'
             ? gameState.board.horizontalLines[row]?.[col]
             : gameState.board.verticalLines[row]?.[col];
-
         if (isPlaced) return;
-
-        // Set pending move for confirmation
         setPendingMove({ type: lineType, row, col });
     };
 
@@ -79,13 +72,8 @@ export const GameBoard: React.FC = () => {
         setPendingMove(null);
     };
 
-    const handleCancelMove = () => {
-        setPendingMove(null);
-    };
+    const handleCancelMove = () => setPendingMove(null);
 
-
-
-    // Get player color
     const getPlayerColor = (playerIndex: number) => {
         const colors = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b'];
         return colors[playerIndex % colors.length];
@@ -94,7 +82,6 @@ export const GameBoard: React.FC = () => {
     return (
         <div className="container" style={{ minHeight: '100vh', paddingTop: 'clamp(1rem, 2vw, 2rem)', paddingBottom: 'clamp(1rem, 2vw, 2rem)' }}>
             <div className="fade-in">
-                {/* Header */}
                 <div className="game-board-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
                     <h1 style={{ fontSize: 'clamp(1.25rem, 4vw, 1.75rem)', fontWeight: '700' }}>Dots and Boxes</h1>
                     <div className="game-board-players" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -114,13 +101,7 @@ export const GameBoard: React.FC = () => {
                             >
                                 <PlayerAvatar avatarId={player.avatar} name={player.name} size={32} />
                                 <span style={{ fontWeight: '600' }}>{player.name}</span>
-                                <span style={{
-                                    background: 'rgba(0,0,0,0.3)',
-                                    padding: '0.25rem 0.5rem',
-                                    borderRadius: '0.5rem',
-                                    fontSize: '0.9rem',
-                                    fontWeight: '700'
-                                }}>
+                                <span style={{ background: 'rgba(0,0,0,0.3)', padding: '0.25rem 0.5rem', borderRadius: '0.5rem', fontSize: '0.9rem', fontWeight: '700' }}>
                                     {player.score}
                                 </span>
                             </div>
@@ -129,10 +110,8 @@ export const GameBoard: React.FC = () => {
                 </div>
 
                 <div className="game-board-layout">
-                    {/* Game Board */}
                     <div className="card game-board-card">
                         <svg width={svgWidth} height={svgHeight} className="game-board-svg" style={{ maxWidth: '100%', height: 'auto' }}>
-                            {/* Dots */}
                             {Array.from({ length: gridSize }).map((_, row) =>
                                 Array.from({ length: gridSize }).map((_, col) => (
                                     <circle
@@ -144,8 +123,6 @@ export const GameBoard: React.FC = () => {
                                     />
                                 ))
                             )}
-
-                            {/* Horizontal Lines */}
                             {Array.from({ length: gridSize }).map((_, row) =>
                                 Array.from({ length: gridSize - 1 }).map((_, col) => {
                                     const isPlaced = gameState.board.horizontalLines[row]?.[col];
@@ -170,8 +147,6 @@ export const GameBoard: React.FC = () => {
                                     );
                                 })
                             )}
-
-                            {/* Vertical Lines */}
                             {Array.from({ length: gridSize - 1 }).map((_, row) =>
                                 Array.from({ length: gridSize }).map((_, col) => {
                                     const isPlaced = gameState.board.verticalLines[row]?.[col];
@@ -196,8 +171,6 @@ export const GameBoard: React.FC = () => {
                                     );
                                 })
                             )}
-
-                            {/* Boxes */}
                             {Array.from({ length: gridSize - 1 }).map((_, row) =>
                                 Array.from({ length: gridSize - 1 }).map((_, col) => {
                                     const ownerId = gameState.board.boxes[row]?.[col];
@@ -221,13 +194,11 @@ export const GameBoard: React.FC = () => {
                         </svg>
                     </div>
 
-                    {/* Game Controls */}
                     <div className="game-controls">
                         <div className="card" style={{ marginBottom: '1rem' }}>
                             <h3 style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '1rem' }}>
                                 {isMyTurn ? '🎯 Your Turn' : `⏳ ${currentPlayer?.name}'s Turn`}
                             </h3>
-
                             {isMyTurn && gameState.diceRoll === null && (
                                 <button
                                     className="btn btn-primary"
@@ -238,7 +209,6 @@ export const GameBoard: React.FC = () => {
                                     {diceRolling ? '🎲 Rolling...' : '🎲 Roll Dice'}
                                 </button>
                             )}
-
                             {gameState.diceRoll !== null && (
                                 <div style={{ textAlign: 'center' }}>
                                     <div
@@ -262,61 +232,44 @@ export const GameBoard: React.FC = () => {
                                     </div>
                                 </div>
                             )}
-
                             {pendingMove && isMyTurn && gameState.movesRemaining > 0 && (
                                 <div style={{ marginTop: '1rem', padding: '1rem', background: 'var(--bg-tertiary)', borderRadius: '0.75rem', border: '2px solid var(--accent-primary)' }}>
-                                    <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '0.75rem', textAlign: 'center' }}>
-                                        Place line here?
-                                    </p>
+                                    <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '0.75rem', textAlign: 'center' }}>Place line here?</p>
                                     <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                        <button
-                                            className="btn btn-primary"
-                                            onClick={handleConfirmMove}
-                                            style={{ flex: 1, padding: '0.75rem', fontSize: '0.95rem' }}
-                                        >
-                                            <Check size={18} />
-                                            Confirm
+                                        <button className="btn btn-primary" onClick={handleConfirmMove} style={{ flex: 1, padding: '0.75rem', fontSize: '0.95rem' }}>
+                                            <Check size={18} /> Confirm
                                         </button>
-                                        <button
-                                            className="btn btn-secondary"
-                                            onClick={handleCancelMove}
-                                            style={{ flex: 1, padding: '0.75rem', fontSize: '0.95rem' }}
-                                        >
-                                            <X size={18} />
-                                            Cancel
+                                        <button className="btn btn-secondary" onClick={handleCancelMove} style={{ flex: 1, padding: '0.75rem', fontSize: '0.95rem' }}>
+                                            <X size={18} /> Cancel
                                         </button>
                                     </div>
                                 </div>
                             )}
                         </div>
-
                         <div className="card">
                             <h3 style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                <Trophy size={20} />
-                                Scores
+                                <Trophy size={20} /> Scores
                             </h3>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                                {room.players
-                                    .sort((a, b) => b.score - a.score)
-                                    .map((player) => (
-                                            <div
-                                                key={player.id}
-                                                style={{
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'space-between',
-                                                    padding: '0.75rem',
-                                                    background: player.id === playerId ? 'rgba(99, 102, 241, 0.1)' : 'var(--bg-tertiary)',
-                                                    borderRadius: '0.5rem'
-                                                }}
-                                            >
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                                    <PlayerAvatar avatarId={player.avatar} name={player.name} size={24} />
-                                                    <span style={{ fontWeight: '600' }}>{player.name}</span>
-                                                </div>
-                                                <span style={{ fontSize: '1.25rem', fontWeight: '700' }}>{player.score}</span>
-                                            </div>
-                                        ))}
+                                {room.players.sort((a, b) => b.score - a.score).map((player) => (
+                                    <div
+                                        key={player.id}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'space-between',
+                                            padding: '0.75rem',
+                                            background: player.id === playerId ? 'rgba(99, 102, 241, 0.1)' : 'var(--bg-tertiary)',
+                                            borderRadius: '0.5rem'
+                                        }}
+                                    >
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                            <PlayerAvatar avatarId={player.avatar} name={player.name} size={24} />
+                                            <span style={{ fontWeight: '600' }}>{player.name}</span>
+                                        </div>
+                                        <span style={{ fontSize: '1.25rem', fontWeight: '700' }}>{player.score}</span>
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     </div>

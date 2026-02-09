@@ -57,6 +57,14 @@ io.on('connection', (socket) => {
         roomManager.handleGameMove(socket, { type: SocketEvent.PLACE_LINE, ...moveData });
     });
 
+    socket.on(SocketEvent.SELECT_GAME, (gameType) => {
+        roomManager.updateRoomSettings(socket, { settings: { gameType } });
+    });
+
+    socket.on(SocketEvent.FLIP_CARD, (cardIndex) => {
+        roomManager.handleGameMove(socket, { type: SocketEvent.FLIP_CARD, cardIndex });
+    });
+
     socket.on('disconnect', () => {
         console.log('User disconnected:', socket.id);
         roomManager.handleDisconnect(socket);

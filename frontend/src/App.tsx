@@ -6,8 +6,8 @@ import { SocketEvent } from '../../shared/types';
 import { Landing } from './components/Landing';
 import { Lobby } from './components/Lobby';
 import { ChooseFirstPlayer } from './components/ChooseFirstPlayer';
-import { GameBoard } from './components/GameBoard';
-import { GameOver } from './components/GameOver';
+import { DotsAndBoxesGameBoard, DotsAndBoxesGameOver } from './games/dots-and-boxes';
+import { MemoryGameBoard, MemoryGameOver } from './games/memory';
 import './index.css';
 
 function RoomPage() {
@@ -58,12 +58,16 @@ function RoomPage() {
 
     // Show game over if game has ended
     if (room.status === 'ENDED') {
-        return <GameOver />;
+        const gameType = room.gameData?.gameType ?? room.settings?.gameType ?? 'DOTS_AND_BOXES';
+        if (gameType === 'MEMORY') return <MemoryGameOver />;
+        return <DotsAndBoxesGameOver />;
     }
 
     // Show game board if game is playing
     if (room.status === 'PLAYING') {
-        return <GameBoard />;
+        const gameType = room.gameData?.gameType ?? 'DOTS_AND_BOXES';
+        if (gameType === 'MEMORY') return <MemoryGameBoard />;
+        return <DotsAndBoxesGameBoard />;
     }
 
     // Rock Paper Scissors to decide who goes first

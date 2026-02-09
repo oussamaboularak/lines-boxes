@@ -1,7 +1,8 @@
 import { randomInt } from 'crypto';
 import { Server, Socket } from 'socket.io';
-import { Room, Player, SocketEvent, RoomSettings, RpsChoice } from '../shared/types.js';
+import { Room, Player, SocketEvent, RoomSettings, RpsChoice, GameType } from '../shared/types.js';
 import { DotsAndBoxesGame } from './games/dots-and-boxes.js';
+import { MemoryGame } from './games/memory-game.js';
 import { v4 as uuidv4 } from 'uuid';
 
 export class RoomManager {
@@ -25,11 +26,19 @@ export class RoomManager {
             colorIndex: 0 // Host gets first color
         };
 
+        const defaultSettings: RoomSettings = {
+            gameType: (data.settings?.gameType as GameType) || 'DOTS_AND_BOXES',
+            gridSize: data.settings?.gridSize ?? 5,
+            diceSides: data.settings?.diceSides ?? 6,
+            maxPlayers: data.settings?.maxPlayers ?? 4,
+            pairCount: data.settings?.pairCount ?? 8
+        };
+
         const room: Room = {
             id: roomId,
             code: roomCode,
             hostId: socket.id,
-            settings: data.settings || { gridSize: 5, diceSides: 6, maxPlayers: 4 },
+            settings: { ...defaultSettings, ...data.settings },
             players: [player],
             status: 'LOBBY',
             gameData: null
@@ -73,6 +82,15 @@ export class RoomManager {
                 const idx = playerIds.indexOf(oldSocketId);
                 if (idx !== -1) {
                     playerIds[idx] = socket.id;
+                }
+            }
+
+            // Update Memory game scores key for reconnected player
+            if (room.gameData && room.gameData.gameType === 'MEMORY' && 'scores' in room.gameData) {
+                const scores = room.gameData.scores as Record<string, number>;
+                if (scores[oldSocketId] !== undefined) {
+                    scores[socket.id] = scores[oldSocketId];
+                    delete scores[oldSocketId];
                 }
             }
 
@@ -127,7 +145,10 @@ export class RoomManager {
         const room = this.rooms.get(roomId);
         if (!room || room.hostId !== socket.id || room.status !== 'LOBBY') return;
 
-        const { gridSize, maxPlayers } = data.settings || {};
+        const { gameType, gridSize, maxPlayers, pairCount } = data.settings || {};
+        if (gameType !== undefined && ['DOTS_AND_BOXES', 'MEMORY'].includes(gameType)) {
+            room.settings.gameType = gameType as GameType;
+        }
         if (gridSize !== undefined) {
             if ([5, 6, 8].includes(gridSize)) {
                 room.settings.gridSize = gridSize;
@@ -136,6 +157,11 @@ export class RoomManager {
         if (maxPlayers !== undefined) {
             if (maxPlayers >= 2 && maxPlayers <= 4 && maxPlayers >= room.players.length) {
                 room.settings.maxPlayers = maxPlayers;
+            }
+        }
+        if (pairCount !== undefined && room.settings.gameType === 'MEMORY') {
+            if (pairCount >= 4 && pairCount <= 10) {
+                room.settings.pairCount = pairCount;
             }
         }
 
@@ -220,8 +246,17 @@ export class RoomManager {
         room.status = 'PLAYING';
         room.rpsPicks = undefined;
 
-        const game = new DotsAndBoxesGame(orderedPlayerIds, room.settings);
-        room.gameData = game.getState();
+        const gameType = room.settings.gameType || 'DOTS_AND_BOXES';
+        if (gameType === 'MEMORY') {
+            const game = new MemoryGame(orderedPlayerIds, room.settings);
+            room.gameData = game.getState();
+            room.players.forEach((p) => {
+                p.score = (room.gameData as any).scores?.[p.id] ?? 0;
+            });
+        } else {
+            const game = new DotsAndBoxesGame(orderedPlayerIds, room.settings);
+            room.gameData = game.getState();
+        }
 
         this.io.to(roomId).emit(SocketEvent.ROOM_UPDATED, room);
         this.io.to(roomId).emit(SocketEvent.GAME_STARTED, room.gameData);
@@ -268,32 +303,37 @@ export class RoomManager {
         const room = this.rooms.get(roomId);
         if (!room || room.status !== 'PLAYING' || !room.gameData) return;
 
-        // We'll need a way to apply moves to the game state
-        // For now, let's assume we have a game helper
-        const game = new DotsAndBoxesGame(room.players.map(p => p.id), room.settings, room.gameData);
+        const gameType = room.gameData.gameType;
 
         try {
-            const result = game.applyMove(socket.id, move);
-            room.gameData = game.getState();
+            if (gameType === 'MEMORY') {
+                const game = new MemoryGame(room.players.map(p => p.id), room.settings, room.gameData as any);
+                const result = game.applyMove(socket.id, move);
+                room.gameData = game.getState();
+                const finalScores = game.getScores();
+                room.players.forEach(p => { p.score = finalScores[p.id] || 0; });
 
-            // Update scores in room players
-            const finalScores = game.getScores();
-            room.players.forEach(p => {
-                p.score = finalScores[p.id] || 0;
-            });
-
-            // Debug: Log what we're sending
-            console.log('=== EMITTING ROOM_UPDATED ===');
-            console.log('gameData.currentPlayerIndex:', room.gameData.currentPlayerIndex);
-            console.log('gameData.diceRoll:', room.gameData.diceRoll);
-            console.log('gameData.movesRemaining:', room.gameData.movesRemaining);
-
-            if (game.isGameOver()) {
-                room.status = 'ENDED';
-                this.io.to(roomId).emit(SocketEvent.ROOM_UPDATED, room);
-                this.io.to(roomId).emit(SocketEvent.GAME_ENDED, room.gameData);
+                if (game.isGameOver()) {
+                    room.status = 'ENDED';
+                    this.io.to(roomId).emit(SocketEvent.ROOM_UPDATED, room);
+                    this.io.to(roomId).emit(SocketEvent.GAME_ENDED, room.gameData);
+                } else {
+                    this.io.to(roomId).emit(SocketEvent.ROOM_UPDATED, room);
+                }
             } else {
-                this.io.to(roomId).emit(SocketEvent.ROOM_UPDATED, room);
+                const game = new DotsAndBoxesGame(room.players.map(p => p.id), room.settings, room.gameData as any);
+                const result = game.applyMove(socket.id, move);
+                room.gameData = game.getState();
+                const finalScores = game.getScores();
+                room.players.forEach(p => { p.score = finalScores[p.id] || 0; });
+
+                if (game.isGameOver()) {
+                    room.status = 'ENDED';
+                    this.io.to(roomId).emit(SocketEvent.ROOM_UPDATED, room);
+                    this.io.to(roomId).emit(SocketEvent.GAME_ENDED, room.gameData);
+                } else {
+                    this.io.to(roomId).emit(SocketEvent.ROOM_UPDATED, room);
+                }
             }
         } catch (error: any) {
             socket.emit(SocketEvent.ERROR, error.message);
