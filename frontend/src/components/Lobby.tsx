@@ -9,7 +9,7 @@ import { GAME_OPTIONS } from '../constants/games';
 
 const GRID_OPTIONS = [5, 6, 8] as const;
 const MAX_PLAYERS_OPTIONS = [2, 3, 4] as const;
-const PAIR_COUNT_OPTIONS = [4, 6, 8, 10, 12, 16, 20] as const;
+const PAIR_COUNT_OPTIONS = [4, 6, 8, 10, 12, 16, 20, 24, 30, 40] as const;
 
 export const Lobby: React.FC = () => {
     const { room, playerId } = useGameStore();
@@ -107,12 +107,13 @@ export const Lobby: React.FC = () => {
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
                         {(room.settings.gameType ?? 'DOTS_AND_BOXES') === 'MEMORY' ? (
                             <div style={{ background: 'var(--bg-tertiary)', padding: '1rem', borderRadius: '0.75rem' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
+                                <label htmlFor="lobby-pairs" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
                                     <Settings size={16} />
                                     Pairs
-                                </div>
+                                </label>
                                 {isHost ? (
                                     <select
+                                        id="lobby-pairs"
                                         className="input"
                                         value={room.settings.pairCount ?? 8}
                                         onChange={(e) => handleSettingsChange({ pairCount: Number(e.target.value) })}
@@ -130,12 +131,13 @@ export const Lobby: React.FC = () => {
                             </div>
                         ) : (
                             <div style={{ background: 'var(--bg-tertiary)', padding: '1rem', borderRadius: '0.75rem' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
+                                <label htmlFor="lobby-grid-size" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
                                     <Settings size={16} />
                                     Grid Size
-                                </div>
+                                </label>
                             {isHost ? (
                                 <select
+                                    id="lobby-grid-size"
                                     className="input"
                                     value={room.settings.gridSize}
                                     onChange={(e) => handleSettingsChange({ gridSize: Number(e.target.value) })}
@@ -164,12 +166,13 @@ export const Lobby: React.FC = () => {
                             </div>
                         )}
                         <div style={{ background: 'var(--bg-tertiary)', padding: '1rem', borderRadius: '0.75rem' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
+                            <label htmlFor="lobby-max-players" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
                                 <Users size={16} />
                                 Max Players
-                            </div>
+                            </label>
                             {isHost ? (
                                 <select
+                                    id="lobby-max-players"
                                     className="input"
                                     value={room.settings.maxPlayers}
                                     onChange={(e) => handleSettingsChange({ maxPlayers: Number(e.target.value) })}

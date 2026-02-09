@@ -72,7 +72,7 @@ export const MemoryGameBoard: React.FC = () => {
         effectiveRevealed.includes(index) || gameState.matched.includes(index);
 
     const cardCount = gameState.cards.length;
-    const cols = cardCount <= 20 ? 4 : 5;
+    const cols = cardCount <= 20 ? 4 : cardCount <= 40 ? 5 : 8;
     const rows = Math.ceil(cardCount / cols);
 
     return (

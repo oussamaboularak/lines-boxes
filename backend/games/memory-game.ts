@@ -19,9 +19,14 @@ export class MemoryGame {
         if (existingState) {
             this.state = existingState;
         } else {
-            const pairCount = Math.min(20, Math.max(4, settings.pairCount ?? 8));
-            const selectedIds = shuffle([...MEMORY_CARD_IDS]).slice(0, pairCount);
-            const pairs = [...selectedIds, ...selectedIds];
+            const pairCount = Math.min(40, Math.max(4, settings.pairCount ?? 8));
+            // Use 20 images, repeating as needed for pairCount (e.g. 40 pairs = each image used twice)
+            const selectedIds: number[] = [];
+            for (let i = 0; i < pairCount; i++) {
+                selectedIds.push(MEMORY_CARD_IDS[i % MEMORY_CARD_IDS.length]);
+            }
+            const shuffledIds = shuffle(selectedIds);
+            const pairs = [...shuffledIds, ...shuffledIds];
             const cards = shuffle(pairs);
 
             const scores: Record<PlayerId, number> = {};

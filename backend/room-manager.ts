@@ -160,7 +160,7 @@ export class RoomManager {
             }
         }
         if (pairCount !== undefined && room.settings.gameType === 'MEMORY') {
-            if (pairCount >= 4 && pairCount <= 20) {
+            if (pairCount >= 4 && pairCount <= 40) {
                 room.settings.pairCount = pairCount;
             }
         }
