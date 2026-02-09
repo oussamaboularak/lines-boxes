@@ -320,6 +320,22 @@ export class RoomManager {
                     this.io.to(roomId).emit(SocketEvent.GAME_ENDED, room.gameData);
                 } else {
                     this.io.to(roomId).emit(SocketEvent.ROOM_UPDATED, room);
+
+                    if (result.matched === false && room.gameData && room.gameData.gameType === 'MEMORY') {
+                        const memState = room.gameData as any;
+                        if (memState.revealed && memState.revealed.length === 2) {
+                            const playerIds = memState.playerIds as string[];
+                            setTimeout(() => {
+                                const r = this.rooms.get(roomId);
+                                if (!r || r.status !== 'PLAYING' || !r.gameData) return;
+                                const state = r.gameData as any;
+                                if (state.gameType !== 'MEMORY' || !state.revealed || state.revealed.length !== 2) return;
+                                state.revealed = [];
+                                state.currentPlayerIndex = (state.currentPlayerIndex + 1) % playerIds.length;
+                                this.io.to(roomId).emit(SocketEvent.ROOM_UPDATED, r);
+                            }, 2200);
+                        }
+                    }
                 }
             } else {
                 const game = new DotsAndBoxesGame(room.players.map(p => p.id), room.settings, room.gameData as any);

@@ -90,8 +90,7 @@ export class MemoryGame {
                     }
                     return { matched: true, gameOver };
                 } else {
-                    this.state.revealed = [];
-                    this.state.currentPlayerIndex = (this.state.currentPlayerIndex + 1) % players.length;
+                    // Keep both cards visible; room-manager will clear revealed and advance turn after delay
                     return { matched: false };
                 }
             }

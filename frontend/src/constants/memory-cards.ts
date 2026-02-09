@@ -27,6 +27,10 @@ export function getMemoryCardSrc(cardId: number): string {
     return new URL(`../../assets/memory_cards/${name}.png`, import.meta.url).href;
 }
 
+export function getCardBackSrc(): string {
+    return new URL(`../../assets/memory_cards/card_back.png`, import.meta.url).href;
+}
+
 /** Human-readable label for accessibility (e.g. "astronaut", "rocket") */
 export function getMemoryCardLabel(cardId: number): string {
     const name = CARD_NAMES[cardId];

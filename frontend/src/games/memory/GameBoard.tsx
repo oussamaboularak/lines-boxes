@@ -1,27 +1,36 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { socket } from '../../socket';
 import { useGameStore } from '../../store';
 import { SocketEvent, MemoryGameState } from '../../../../shared/types';
 import { Trophy } from 'lucide-react';
 import { PlayerAvatar } from '../../components/PlayerAvatar';
-import { getMemoryCardSrc, getMemoryCardLabel } from '../../constants/memory-cards';
+import { getMemoryCardSrc, getMemoryCardLabel, getCardBackSrc } from '../../constants/memory-cards';
 
-const CARD_BACK = 'data:image/svg+xml,' + encodeURIComponent(
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect fill="%236366f1" width="100" height="100" rx="8"/><text x="50" y="55" font-size="40" text-anchor="middle" fill="white">?</text></svg>'
-);
+const CARD_ASPECT_STR = '2/3';
+const CARD_GAP = 10;
+
+function getResponsiveCols(cardCount: number, width: number): number {
+    const desktop = cardCount <= 8 ? 4 : cardCount <= 16 ? 4 : cardCount <= 24 ? 6 : cardCount <= 40 ? 8 : 10;
+    if (width >= 768) return desktop;
+    if (width >= 480) return Math.min(3, desktop);
+    return Math.min(2, desktop);
+}
 
 export const MemoryGameBoard: React.FC = () => {
     const { room, playerId } = useGameStore();
-    const [pendingHide, setPendingHide] = useState<number[]>([]);
-    const lastFlippedRef = useRef<number | null>(null);
-    const prevRevealedRef = useRef<number[]>([]);
-    const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const [cols, setCols] = useState(4);
+    const cardCount = room?.gameData?.gameType === 'MEMORY'
+        ? (room.gameData as MemoryGameState).cards.length
+        : 0;
 
     useEffect(() => {
-        return () => {
-            if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+        const updateCols = () => {
+            setCols(getResponsiveCols(cardCount, window.innerWidth));
         };
-    }, []);
+        updateCols();
+        window.addEventListener('resize', updateCols);
+        return () => window.removeEventListener('resize', updateCols);
+    }, [cardCount]);
 
     if (!room || !room.gameData || room.gameData.gameType !== 'MEMORY') return null;
 
@@ -30,54 +39,22 @@ export const MemoryGameBoard: React.FC = () => {
     const currentPlayer = room.players.find(p => p.id === currentPlayerId);
     const isMyTurn = currentPlayerId === playerId;
 
-    const effectiveRevealed = pendingHide.length > 0 ? pendingHide : gameState.revealed;
-
-    useEffect(() => {
-        const prevRevealed = prevRevealedRef.current;
-        prevRevealedRef.current = gameState.revealed;
-
-        if (hideTimerRef.current) {
-            clearTimeout(hideTimerRef.current);
-            hideTimerRef.current = null;
-        }
-
-        if (gameState.revealed.length === 0 && lastFlippedRef.current !== null && prevRevealed.length === 1) {
-            const justFlipped = lastFlippedRef.current;
-            const otherCard = prevRevealed[0];
-            lastFlippedRef.current = null;
-
-            if (!gameState.matched.includes(justFlipped) && !gameState.matched.includes(otherCard)) {
-                setPendingHide([otherCard, justFlipped]);
-                hideTimerRef.current = setTimeout(() => {
-                    setPendingHide([]);
-                    hideTimerRef.current = null;
-                }, 1500);
-            }
-        } else {
-            lastFlippedRef.current = null;
-            if (gameState.revealed.length === 0) setPendingHide([]);
-        }
-    }, [gameState.revealed, gameState.matched]);
-
     const handleCardClick = (index: number) => {
         if (!isMyTurn) return;
         if (gameState.revealed.includes(index) || gameState.matched.includes(index)) return;
         if (gameState.revealed.length >= 2) return;
 
-        lastFlippedRef.current = index;
         socket.emit(SocketEvent.FLIP_CARD, index);
     };
 
     const isCardVisible = (index: number) =>
-        effectiveRevealed.includes(index) || gameState.matched.includes(index);
+        gameState.revealed.includes(index) || gameState.matched.includes(index);
 
-    const cardCount = gameState.cards.length;
-    const cols = cardCount <= 20 ? 4 : cardCount <= 40 ? 5 : 8;
     const rows = Math.ceil(cardCount / cols);
 
     return (
-        <div className="container" style={{ minHeight: '100vh', paddingTop: 'clamp(1rem, 2vw, 2rem)', paddingBottom: 'clamp(1rem, 2vw, 2rem)' }}>
-            <div className="fade-in">
+        <div className="container memory-game-page" style={{ minHeight: '100vh', width: '100%', paddingTop: 'clamp(1rem, 2vw, 2rem)', paddingBottom: 'clamp(1rem, 2vw, 2rem)' }}>
+            <div className="fade-in" style={{ width: '100%', maxWidth: '720px', margin: '0 auto' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
                     <h1 style={{ fontSize: 'clamp(1.25rem, 4vw, 1.75rem)', fontWeight: '700' }}>Memory Game</h1>
                     <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -106,52 +83,63 @@ export const MemoryGameBoard: React.FC = () => {
                 </div>
 
                 <div className="game-board-layout memory-game-layout">
-                    <div className="card game-board-card memory-game-card" style={{ flex: 1 }}>
+                    <div className="card game-board-card memory-game-card">
                         <div
                             className="memory-game-grid"
                             style={{
                                 display: 'grid',
-                                gridTemplateColumns: `repeat(${cols}, minmax(72px, 1fr))`,
-                                gridTemplateRows: `repeat(${rows}, minmax(72px, 1fr))`,
-                                gap: 'clamp(0.5rem, 2vw, 1rem)',
+                                gridTemplateColumns: `repeat(${cols}, minmax(64px, 1fr))`,
+                                gridTemplateRows: `repeat(${rows}, auto)`,
+                                gap: `${CARD_GAP}px`,
                                 width: '100%',
-                                maxWidth: 'min(650px, 95vw)',
-                                margin: '0 auto'
+                                minWidth: 0,
+                                justifyItems: 'stretch',
+                                alignItems: 'stretch',
+                                alignContent: 'start'
                             }}
                         >
                             {gameState.cards.map((cardId, index) => (
                                 <button
                                     key={index}
                                     type="button"
+                                    className={`memory-card ${isCardVisible(index) ? 'memory-card-flipped' : ''}`}
                                     aria-label={isCardVisible(index)
                                         ? `Card showing ${getMemoryCardLabel(cardId)}`
                                         : `Reveal card ${index + 1}`}
                                     onClick={() => handleCardClick(index)}
                                     disabled={!isMyTurn || isCardVisible(index) || gameState.revealed.length >= 2}
                                     style={{
-                                        aspectRatio: '1',
+                                        width: '100%',
+                                        maxWidth: '100%',
+                                        aspectRatio: CARD_ASPECT_STR,
                                         padding: 0,
                                         border: 'none',
-                                        borderRadius: '0.75rem',
+                                        borderRadius: '0.5rem',
                                         overflow: 'hidden',
                                         cursor: isMyTurn && !isCardVisible(index) && gameState.revealed.length < 2 ? 'pointer' : 'default',
                                         background: 'transparent',
-                                        transition: 'transform 0.2s'
+                                        position: 'relative',
+                                        isolation: 'isolate'
                                     }}
                                 >
-                                    <div
-                                        style={{
-                                            width: '100%',
-                                            height: '100%',
-                                            backgroundImage: isCardVisible(index)
-                                                ? `url(${getMemoryCardSrc(cardId)})`
-                                                : `url(${CARD_BACK})`,
-                                            backgroundSize: 'cover',
-                                            backgroundPosition: 'center',
-                                            borderRadius: '0.75rem',
-                                            border: '2px solid var(--border-color)'
-                                        }}
-                                    />
+                                    <div className="memory-card-inner">
+                                        <div
+                                            className="memory-card-face memory-card-back"
+                                            style={{
+                                                backgroundImage: `url(${getCardBackSrc()})`,
+                                                backgroundSize: 'cover',
+                                                backgroundPosition: 'center'
+                                            }}
+                                        />
+                                        <div
+                                            className="memory-card-face memory-card-front"
+                                            style={{
+                                                backgroundImage: `url(${getMemoryCardSrc(cardId)})`,
+                                                backgroundSize: 'cover',
+                                                backgroundPosition: 'center'
+                                            }}
+                                        />
+                                    </div>
                                 </button>
                             ))}
                         </div>
