@@ -8,6 +8,7 @@ import { AVATAR_OPTIONS } from '../constants/avatars';
 import { GAME_OPTIONS } from '../constants/games';
 
 const GRID_OPTIONS = [5, 6, 8] as const;
+const SECRET_SIZE_OPTIONS = [4, 5, 6] as const;
 const MAX_PLAYERS_OPTIONS = [2, 3, 4] as const;
 const isFourChiffre = (room: { settings: { gameType?: string } }) => room.settings.gameType === 'FOUR_CHIFFRE';
 const PAIR_COUNT_OPTIONS = [4, 6, 8, 10, 12, 16, 20, 24, 30, 40] as const;
@@ -35,7 +36,7 @@ export const Lobby: React.FC = () => {
         setTimeout(() => setCopied(false), 2000);
     };
 
-    const handleSettingsChange = (updates: { gridSize?: number; maxPlayers?: number; gameType?: string; pairCount?: number }) => {
+    const handleSettingsChange = (updates: { gridSize?: number; maxPlayers?: number; gameType?: string; pairCount?: number; secretSize?: number }) => {
         if (!isHost) return;
         socket.emit(SocketEvent.UPDATE_ROOM_SETTINGS, { settings: updates });
     };
@@ -83,7 +84,7 @@ export const Lobby: React.FC = () => {
                                     <button
                                         key={g.id}
                                         type="button"
-                                        onClick={() => handleSettingsChange({ gameType: g.id, ...(g.id === 'FOUR_CHIFFRE' ? { maxPlayers: 2 } : {}) })}
+                                        onClick={() => handleSettingsChange({ gameType: g.id, ...(g.id === 'FOUR_CHIFFRE' ? { maxPlayers: 2, secretSize: 4 } : {}) })}
                                         style={{
                                             flex: 1,
                                             minWidth: '140px',
@@ -134,6 +135,33 @@ export const Lobby: React.FC = () => {
                                 ) : (
                                     <div style={{ fontSize: '1.5rem', fontWeight: '600' }}>
                                         {room.settings.pairCount ?? 8} pairs
+                                    </div>
+                                )}
+                            </div>
+                        ) : isFourChiffre(room) ? (
+                            <div style={{ background: 'var(--bg-tertiary)', padding: '1rem', borderRadius: '0.75rem' }}>
+                                <label htmlFor="lobby-secret-size" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
+                                    <Settings size={16} />
+                                    Secret size
+                                </label>
+                                {isHost ? (
+                                    <select
+                                        id="lobby-secret-size"
+                                        className="input"
+                                        value={room.settings.secretSize ?? 4}
+                                        onChange={(e) => {
+                                            const v = Number(e.target.value);
+                                            if ([4, 5, 6].includes(v)) handleSettingsChange({ secretSize: v });
+                                        }}
+                                        style={{ width: '100%', padding: '0.5rem', fontSize: '1rem', fontWeight: '600' }}
+                                    >
+                                        {SECRET_SIZE_OPTIONS.map((n) => (
+                                            <option key={n} value={n}>{n} digits</option>
+                                        ))}
+                                    </select>
+                                ) : (
+                                    <div style={{ fontSize: '1.5rem', fontWeight: '600' }}>
+                                        {room.settings.secretSize ?? 4} digits
                                     </div>
                                 )}
                             </div>

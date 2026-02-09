@@ -154,11 +154,12 @@ export class RoomManager {
         const room = this.rooms.get(roomId);
         if (!room || room.hostId !== socket.id || room.status !== 'LOBBY') return;
 
-        const { gameType, gridSize, maxPlayers, pairCount } = data.settings || {};
+        const { gameType, gridSize, maxPlayers, pairCount, secretSize } = data.settings || {};
         if (gameType !== undefined && ['DOTS_AND_BOXES', 'MEMORY', 'FOUR_CHIFFRE'].includes(gameType)) {
             room.settings.gameType = gameType as GameType;
-            if ((gameType as GameType) === 'FOUR_CHIFFRE' && room.settings.maxPlayers > 2) {
-                room.settings.maxPlayers = 2;
+            if ((gameType as GameType) === 'FOUR_CHIFFRE') {
+                if (room.settings.maxPlayers > 2) room.settings.maxPlayers = 2;
+                if (room.settings.secretSize === undefined) room.settings.secretSize = 4;
             }
         }
         if (gridSize !== undefined) {
@@ -175,6 +176,11 @@ export class RoomManager {
             const n = Number(pairCount);
             if (!Number.isNaN(n) && n >= 4 && n <= 40) {
                 room.settings.pairCount = n;
+            }
+        }
+        if (secretSize !== undefined && room.settings.gameType === 'FOUR_CHIFFRE') {
+            if ([4, 5, 6].includes(secretSize)) {
+                room.settings.secretSize = secretSize;
             }
         }
 

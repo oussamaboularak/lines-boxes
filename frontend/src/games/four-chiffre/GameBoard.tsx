@@ -3,7 +3,7 @@ import { socket } from '../../socket';
 import { useGameStore } from '../../store';
 import { SocketEvent } from '../../../../shared/types';
 import type { FourChiffreState } from '../../../../shared/types';
-import { Lock, Send, Target, User } from 'lucide-react';
+import { Lock, Send, User, Eye, EyeOff } from 'lucide-react';
 import { PlayerAvatar } from '../../components/PlayerAvatar';
 
 const DIGITS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
@@ -16,6 +16,9 @@ export const FourChiffreGameBoard: React.FC = () => {
     const [guessInput, setGuessInput] = useState('');
     /** User's manual notes: green = think in secret, red = think not in secret */
     const [digitMarks, setDigitMarks] = useState<Record<number, DigitMark>>({});
+    /** Copy of my secret (kept locally after submit so user can reveal it); lost on refresh */
+    const [mySecret, setMySecret] = useState<string | null>(null);
+    const [showMySecret, setShowMySecret] = useState(false);
 
     const cycleDigitMark = (d: number) => {
         setDigitMarks((prev) => {
@@ -30,6 +33,7 @@ export const FourChiffreGameBoard: React.FC = () => {
 
     if (!room || !room.gameData || room.gameData.gameType !== 'FOUR_CHIFFRE') return null;
 
+    const secretSize = room.settings.secretSize ?? 4;
     const state = room.gameData as FourChiffreState;
     const mySecretSet = state.secretSet[playerId ?? ''] ?? false;
     const otherPlayerId = state.playerIds.find((id) => id !== playerId);
@@ -39,10 +43,12 @@ export const FourChiffreGameBoard: React.FC = () => {
     const currentPlayer = room.players.find((p) => p.id === currentPlayerId);
     const otherPlayer = room.players.find((p) => p.id === otherPlayerId);
 
+    const secretRegex = new RegExp(`^\\d{${secretSize}}$`);
     const handleSubmitSecret = (e: React.FormEvent) => {
         e.preventDefault();
         const s = secretInput.trim();
-        if (/^\d{4}$/.test(s)) {
+        if (secretRegex.test(s)) {
+            setMySecret(s);
             socket.emit(SocketEvent.SET_SECRET, s);
             setSecretInput('');
         }
@@ -51,7 +57,7 @@ export const FourChiffreGameBoard: React.FC = () => {
     const handleSubmitGuess = (e: React.FormEvent) => {
         e.preventDefault();
         const g = guessInput.trim();
-        if (/^\d{4}$/.test(g)) {
+        if (secretRegex.test(g)) {
             socket.emit(SocketEvent.GUESS_NUMBER, g);
             setGuessInput('');
         }
@@ -66,7 +72,7 @@ export const FourChiffreGameBoard: React.FC = () => {
                     4 Chiffres
                 </h1>
                 <p style={{ color: 'var(--text-secondary)', textAlign: 'center', marginBottom: '1.5rem', fontSize: '0.95rem' }}>
-                    Guess the other player&apos;s 4-digit number. You get: correct digits, and how many are in the right place.
+                    Guess the other player&apos;s {secretSize}-digit number. You get: correct digits, and how many are in the right place.
                 </p>
 
                 {state.phase === 'ENTER_SECRET' && (
@@ -80,11 +86,11 @@ export const FourChiffreGameBoard: React.FC = () => {
                                     type="password"
                                     inputMode="numeric"
                                     pattern="[0-9]*"
-                                    maxLength={4}
+                                    maxLength={secretSize}
                                     className="input"
-                                    placeholder="Enter 4 digits (e.g. 1256)"
+                                    placeholder={`Enter ${secretSize} digits (e.g. ${secretSize === 4 ? '1256' : secretSize === 5 ? '12345' : '123456'})`}
                                     value={secretInput}
-                                    onChange={(e) => setSecretInput(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                                    onChange={(e) => setSecretInput(e.target.value.replace(/\D/g, '').slice(0, secretSize))}
                                     style={{
                                         width: '100%',
                                         padding: '1rem',
@@ -97,7 +103,7 @@ export const FourChiffreGameBoard: React.FC = () => {
                                 <button
                                     type="submit"
                                     className="btn btn-primary"
-                                    disabled={secretInput.length !== 4}
+                                    disabled={secretInput.length !== secretSize}
                                     style={{ width: '100%', marginTop: '1rem', padding: '0.75rem' }}
                                 >
                                     <Lock size={18} /> Set secret
@@ -116,7 +122,7 @@ export const FourChiffreGameBoard: React.FC = () => {
 
                 {state.phase === 'GUESSING' && (
                     <>
-                        <div className="card" style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' }}>
+                        <div className="card" style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                                 <PlayerAvatar avatarId={currentPlayer?.avatar} name={currentPlayer?.name ?? ''} size={36} />
                                 <div>
@@ -126,11 +132,23 @@ export const FourChiffreGameBoard: React.FC = () => {
                                     </div>
                                 </div>
                             </div>
-                            {isMyTurn && (
-                                <span style={{ background: 'var(--accent-gradient)', padding: '0.35rem 0.75rem', borderRadius: '999px', fontSize: '0.9rem', fontWeight: '600' }}>
-                                    <Target size={14} style={{ verticalAlign: 'middle', marginRight: '0.25rem' }} />
-                                    Your turn
-                                </span>
+                            {mySecret !== null && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <Lock size={18} style={{ color: 'var(--text-muted)' }} />
+                                    <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>My secret:</span>
+                                    <span style={{ fontSize: '1.25rem', fontWeight: '600', letterSpacing: '0.15em', fontVariantNumeric: 'tabular-nums' }}>
+                                        {showMySecret ? mySecret : '•'.repeat(mySecret.length)}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        className="btn btn-secondary"
+                                        onClick={() => setShowMySecret((v) => !v)}
+                                        style={{ padding: '0.4rem 0.75rem', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                                        title={showMySecret ? 'Hide secret' : 'Show secret'}
+                                    >
+                                        {showMySecret ? <EyeOff size={16} /> : <Eye size={16} />}
+                                    </button>
+                                </div>
                             )}
                         </div>
 
@@ -177,11 +195,11 @@ export const FourChiffreGameBoard: React.FC = () => {
                                         type="text"
                                         inputMode="numeric"
                                         pattern="[0-9]*"
-                                        maxLength={4}
+                                        maxLength={secretSize}
                                         className="input"
-                                        placeholder="4 digits"
+                                        placeholder={`${secretSize} digits`}
                                         value={guessInput}
-                                        onChange={(e) => setGuessInput(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                                        onChange={(e) => setGuessInput(e.target.value.replace(/\D/g, '').slice(0, secretSize))}
                                         style={{
                                             width: '100%',
                                             padding: '1rem',
@@ -194,7 +212,7 @@ export const FourChiffreGameBoard: React.FC = () => {
                                     <button
                                         type="submit"
                                         className="btn btn-primary"
-                                        disabled={guessInput.length !== 4}
+                                        disabled={guessInput.length !== secretSize}
                                         style={{ width: '100%', marginTop: '0.75rem', padding: '0.75rem' }}
                                     >
                                         <Send size={18} /> Submit guess

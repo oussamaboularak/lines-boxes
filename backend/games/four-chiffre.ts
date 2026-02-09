@@ -5,16 +5,22 @@ import {
     FourChiffreGuessEntry
 } from '../../shared/types.js';
 
-const DIGITS = 4;
-const VALID_SECRET_REGEX = /^\d{4}$/;
+function getSecretSize(settings: RoomSettings): number {
+    const n = settings.secretSize ?? 4;
+    return n >= 4 && n <= 6 ? n : 4;
+}
 
-function computeFeedback(secret: string, guess: string): { correctDigits: number; correctPlace: number } {
+function makeSecretRegex(len: number): RegExp {
+    return new RegExp(`^\\d{${len}}$`);
+}
+
+function computeFeedback(secret: string, guess: string, digits: number): { correctDigits: number; correctPlace: number } {
     const secretArr = secret.split('');
     const guessArr = guess.split('');
     let correctPlace = 0;
     const secretCount: Record<string, number> = {};
     const guessCount: Record<string, number> = {};
-    for (let i = 0; i < DIGITS; i++) {
+    for (let i = 0; i < digits; i++) {
         if (secretArr[i] === guessArr[i]) correctPlace++;
         secretCount[secretArr[i]] = (secretCount[secretArr[i]] ?? 0) + 1;
         guessCount[guessArr[i]] = (guessCount[guessArr[i]] ?? 0) + 1;
@@ -28,10 +34,12 @@ function computeFeedback(secret: string, guess: string): { correctDigits: number
 
 export class FourChiffreGame {
     private state: FourChiffreState;
+    private readonly secretSize: number;
     /** Secrets stored only on server, never sent to client */
     private secrets: Record<PlayerId, string> = {};
 
-    constructor(playerIds: PlayerId[], _settings: RoomSettings, existingState?: FourChiffreState) {
+    constructor(playerIds: PlayerId[], settings: RoomSettings, existingState?: FourChiffreState) {
+        this.secretSize = getSecretSize(settings);
         if (existingState) {
             this.state = existingState;
             // secrets are not in state; must be passed separately by room-manager
@@ -71,8 +79,8 @@ export class FourChiffreGame {
         if (!this.state.playerIds.includes(playerId)) {
             throw new Error('Not a player');
         }
-        if (!VALID_SECRET_REGEX.test(secret)) {
-            throw new Error('Secret must be exactly 4 digits');
+        if (!makeSecretRegex(this.secretSize).test(secret)) {
+            throw new Error(`Secret must be exactly ${this.secretSize} digits`);
         }
         this.secrets[playerId] = secret;
         this.state.secretSet[playerId] = true;
@@ -91,8 +99,8 @@ export class FourChiffreGame {
         if (playerId !== currentPlayerId) {
             throw new Error('Not your turn');
         }
-        if (!VALID_SECRET_REGEX.test(guess)) {
-            throw new Error('Guess must be exactly 4 digits');
+        if (!makeSecretRegex(this.secretSize).test(guess)) {
+            throw new Error(`Guess must be exactly ${this.secretSize} digits`);
         }
 
         const otherPlayerId = this.state.playerIds[1 - this.state.currentPlayerIndex];
@@ -101,7 +109,7 @@ export class FourChiffreGame {
             throw new Error('Opponent secret not set');
         }
 
-        const { correctDigits, correctPlace } = computeFeedback(targetSecret, guess);
+        const { correctDigits, correctPlace } = computeFeedback(targetSecret, guess, this.secretSize);
         const entry: FourChiffreGuessEntry = {
             guesserId: playerId,
             targetId: otherPlayerId,
@@ -111,7 +119,7 @@ export class FourChiffreGame {
         };
         this.state.guessHistory.push(entry);
 
-        if (correctPlace === DIGITS) {
+        if (correctPlace === this.secretSize) {
             this.state.status = 'ENDED';
             this.state.winner = playerId;
         } else {

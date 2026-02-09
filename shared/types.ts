@@ -20,6 +20,7 @@ export interface RoomSettings {
     diceSides: number;
     maxPlayers: number;
     pairCount?: number; // 4-40 pairs for MEMORY game (20 images reused)
+    secretSize?: number; // 4, 5, or 6 digits for FOUR_CHIFFRE
 }
 
 export type GameStatus = 'LOBBY' | 'CHOOSING_FIRST' | 'PLAYING' | 'ENDED';
