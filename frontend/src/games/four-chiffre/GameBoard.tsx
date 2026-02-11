@@ -3,7 +3,7 @@ import { socket } from '../../socket';
 import { useGameStore } from '../../store';
 import { SocketEvent } from '../../../../shared/types';
 import type { FourChiffreState } from '../../../../shared/types';
-import { Lock, Send, User, Eye, EyeOff } from 'lucide-react';
+import { Lock, Send, Eye, EyeOff } from 'lucide-react';
 import { PlayerAvatar } from '../../components/PlayerAvatar';
 
 const DIGITS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
