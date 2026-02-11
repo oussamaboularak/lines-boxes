@@ -1,12 +1,13 @@
 import { randomInt } from 'crypto';
 import { Server, Socket } from 'socket.io';
-import { Room, Player, SocketEvent, RoomSettings, RpsChoice, GameType, FourChiffreState, WordGuesserState, MotusState, ChainesLogiqueState } from '../shared/types.js';
+import { Room, Player, SocketEvent, RoomSettings, RpsChoice, GameType, FourChiffreState, WordGuesserState, MotusState, ChainesLogiqueState, MrWhiteState } from '../shared/types.js';
 import { DotsAndBoxesGame } from './games/dots-and-boxes.js';
 import { MemoryGame } from './games/memory-game.js';
 import { FourChiffreGame } from './games/four-chiffre.js';
 import { WordGuesserGame } from './games/word-guesser.js';
 import { MotusGame } from './games/motus.js';
 import { ChainesLogiqueGame } from './games/chaines-logique.js';
+import { MrWhiteGame } from './games/mr-white-game.js';
 import { v4 as uuidv4 } from 'uuid';
 
 export class RoomManager {
@@ -171,7 +172,7 @@ export class RoomManager {
         if (!room || room.hostId !== socket.id || room.status !== 'LOBBY') return;
 
         const { gameType, gridSize, maxPlayers, pairCount, secretSize, motusLang, chainesCount } = data.settings || {};
-        if (gameType !== undefined && ['DOTS_AND_BOXES', 'MEMORY', 'FOUR_CHIFFRE', 'WORD_GUESSER', 'MOTUS', 'CHAINES_LOGIQUE'].includes(gameType)) {
+        if (gameType !== undefined && ['DOTS_AND_BOXES', 'MEMORY', 'FOUR_CHIFFRE', 'WORD_GUESSER', 'MOTUS', 'CHAINES_LOGIQUE', 'MR_WHITE'].includes(gameType)) {
             room.settings.gameType = gameType as GameType;
             if ((gameType as GameType) === 'FOUR_CHIFFRE') {
                 if (room.settings.maxPlayers > 2) room.settings.maxPlayers = 2;
@@ -190,6 +191,9 @@ export class RoomManager {
                 if (room.settings.maxPlayers > 2) room.settings.maxPlayers = 2;
                 if (room.settings.chainesCount === undefined) room.settings.chainesCount = 5;
             }
+            if ((gameType as GameType) === 'MR_WHITE') {
+                if (room.settings.maxPlayers < 4) room.settings.maxPlayers = 4;
+            }
         }
         if (gridSize !== undefined) {
             if ([5, 6, 8].includes(gridSize)) {
@@ -197,7 +201,7 @@ export class RoomManager {
             }
         }
         if (maxPlayers !== undefined) {
-            if (maxPlayers >= 2 && maxPlayers <= 4 && maxPlayers >= room.players.length) {
+            if (maxPlayers >= 2 && maxPlayers <= 10 && maxPlayers >= room.players.length) {
                 room.settings.maxPlayers = maxPlayers;
             }
         }
@@ -286,6 +290,10 @@ export class RoomManager {
             socket.emit(SocketEvent.ERROR, 'Chaines Logique is for 2 players only');
             return;
         }
+        if (room.settings.gameType === 'MR_WHITE' && room.players.length < 4) {
+            socket.emit(SocketEvent.ERROR, 'Mr White requires at least 4 players');
+            return;
+        }
 
         // Enter Rock Paper Scissors phase to decide who goes first
         room.status = 'CHOOSING_FIRST';
@@ -343,6 +351,9 @@ export class RoomManager {
             const game = new ChainesLogiqueGame(orderedPlayerIds.slice(0, 2), room.settings);
             room.gameData = game.getState();
             this.chainesLogiqueWords.set(roomId, {});
+        } else if (gameType === 'MR_WHITE') {
+            const game = new MrWhiteGame(orderedPlayerIds, room.settings);
+            room.gameData = game.getState();
         } else {
             const game = new DotsAndBoxesGame(orderedPlayerIds, room.settings);
             room.gameData = game.getState();
@@ -635,6 +646,97 @@ export class RoomManager {
             if (game.isGameOver()) {
                 room.status = 'ENDED';
                 this.chainesLogiqueWords.delete(roomId);
+                this.io.to(roomId).emit(SocketEvent.ROOM_UPDATED, room);
+                this.io.to(roomId).emit(SocketEvent.GAME_ENDED, room.gameData);
+            } else {
+                this.io.to(roomId).emit(SocketEvent.ROOM_UPDATED, room);
+            }
+        } catch (error: any) {
+            socket.emit(SocketEvent.ERROR, error.message);
+        }
+    }
+
+    handleMrWhiteClue(socket: Socket, text: string) {
+        const roomId = this.playerToRoom.get(socket.id);
+        if (!roomId) return;
+
+        const room = this.rooms.get(roomId);
+        if (!room || room.status !== 'PLAYING' || !room.gameData || room.gameData.gameType !== 'MR_WHITE') return;
+
+        const state = room.gameData as MrWhiteState;
+        if (!state.playerIds.includes(socket.id)) return;
+
+        try {
+            const game = new MrWhiteGame(state.playerIds, room.settings, state);
+            game.applyClue(socket.id, text);
+            room.gameData = game.getState();
+            this.io.to(roomId).emit(SocketEvent.ROOM_UPDATED, room);
+        } catch (error: any) {
+            socket.emit(SocketEvent.ERROR, error.message);
+        }
+    }
+
+    handleMrWhiteVote(socket: Socket, votedId: string) {
+        const roomId = this.playerToRoom.get(socket.id);
+        if (!roomId) return;
+
+        const room = this.rooms.get(roomId);
+        if (!room || room.status !== 'PLAYING' || !room.gameData || room.gameData.gameType !== 'MR_WHITE') return;
+
+        const state = room.gameData as MrWhiteState;
+
+        // HACK: Handle "START_VOTING" trigger from Host during Discussion
+        if (votedId === 'START_VOTING') {
+            if (room.hostId !== socket.id) return;
+            if (state.phase !== 'DISCUSSION_PHASE') return;
+
+            try {
+                const game = new MrWhiteGame(state.playerIds, room.settings, state);
+                game.endDiscussion();
+                room.gameData = game.getState();
+                this.io.to(roomId).emit(SocketEvent.ROOM_UPDATED, room);
+            } catch (error: any) {
+                socket.emit(SocketEvent.ERROR, error.message);
+            }
+            return;
+        }
+
+        if (!state.playerIds.includes(socket.id)) return;
+
+        try {
+            const game = new MrWhiteGame(state.playerIds, room.settings, state);
+            game.applyVote(socket.id, votedId);
+            room.gameData = game.getState();
+
+            if (game.isGameOver()) {
+                room.status = 'ENDED';
+                this.io.to(roomId).emit(SocketEvent.ROOM_UPDATED, room);
+                this.io.to(roomId).emit(SocketEvent.GAME_ENDED, room.gameData);
+            } else {
+                this.io.to(roomId).emit(SocketEvent.ROOM_UPDATED, room);
+            }
+        } catch (error: any) {
+            socket.emit(SocketEvent.ERROR, error.message);
+        }
+    }
+
+    handleMrWhiteGuess(socket: Socket, guess: string) {
+        const roomId = this.playerToRoom.get(socket.id);
+        if (!roomId) return;
+
+        const room = this.rooms.get(roomId);
+        if (!room || room.status !== 'PLAYING' || !room.gameData || room.gameData.gameType !== 'MR_WHITE') return;
+
+        const state = room.gameData as MrWhiteState;
+        if (socket.id !== state.mrWhiteId) return;
+
+        try {
+            const game = new MrWhiteGame(state.playerIds, room.settings, state);
+            game.applyMrWhiteGuess(guess);
+            room.gameData = game.getState();
+
+            if (game.isGameOver()) {
+                room.status = 'ENDED';
                 this.io.to(roomId).emit(SocketEvent.ROOM_UPDATED, room);
                 this.io.to(roomId).emit(SocketEvent.GAME_ENDED, room.gameData);
             } else {
